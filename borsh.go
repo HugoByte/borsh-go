@@ -502,7 +502,7 @@ func serialize(v reflect.Value, b io.Writer) error {
 			err = serialize(v.Elem(), b)
 		}
 	case reflect.Struct:
-		if v.Type() == reflect.TypeOf(*big.NewInt(0)) {
+		if v.Type() == reflect.TypeOf(*big.NewInt(0)) || v.Type().Name() == "BigInt" {
 			err = serializeUint128(v, b)
 		} else {
 			err = serializeStruct(v, b)
