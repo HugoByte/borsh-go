@@ -496,3 +496,22 @@ func TestPointer(t *testing.T) {
 		t.Errorf("expected pointer byte to be 0")
 	}
 }
+
+type NewType string
+
+func(n NewType) Serialize() ([]byte, error) {
+	return []byte{1}, nil
+}
+
+func TestCustomSerialize(t *testing.T) {
+	x := NewType(string("foo"))
+	expected := []byte{1}
+	actual, err := Serialize(x)
+	if err != nil {
+		t.Error(err)
+	}
+	
+	if !reflect.DeepEqual(actual, expected) {
+		t.Error(actual, expected)
+	}
+}

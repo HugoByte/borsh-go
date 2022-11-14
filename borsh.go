@@ -12,6 +12,14 @@ import (
 	"sort"
 )
 
+type Serializer interface {
+	Serialize() ([]byte, error)
+}
+
+type DeSerializer interface {
+	
+} 
+
 // Deserialize `data` according to the schema of `s`, and store the value into it. `s` must be a pointer type variable
 // that points to the original schema of `data`.
 func Deserialize(s interface{}, data []byte) error {
@@ -391,121 +399,132 @@ func serializeUint128(v reflect.Value, b io.Writer) error {
 
 func serialize(v reflect.Value, b io.Writer) error {
 	var err error
-	switch v.Kind() {
-	case reflect.Bool:
-		if v.Bool() {
-			_, err = b.Write([]byte{1})
-		} else {
-			_, err = b.Write([]byte{0})
+
+	if c, ok := (v.Interface()).(Serializer); ok {
+		v := *new([]byte)
+		v, err = c.Serialize()
+
+		if _, err := b.Write(v); err != nil {
+			return err
 		}
-	case reflect.Int8:
-		_, err = b.Write([]byte{byte((v.Int()))})
-	case reflect.Int16:
-		tmp := make([]byte, 2)
-		binary.LittleEndian.PutUint16(tmp, uint16(v.Int()))
-		_, err = b.Write(tmp)
-	case reflect.Int32:
-		tmp := make([]byte, 4)
-		binary.LittleEndian.PutUint32(tmp, uint32(v.Int()))
-		_, err = b.Write(tmp)
-	case reflect.Int64:
-		tmp := make([]byte, 8)
-		binary.LittleEndian.PutUint64(tmp, uint64(v.Int()))
-		_, err = b.Write(tmp)
-	case reflect.Int:
-		tmp := make([]byte, 8)
-		binary.LittleEndian.PutUint64(tmp, uint64(v.Interface().(int)))
-		_, err = b.Write(tmp)
-	case reflect.Uint8:
-		// user-defined Enum type is also uint8, so can't directly assert type here
-		_, err = b.Write([]byte{byte(v.Uint())})
-	case reflect.Uint16:
-		tmp := make([]byte, 2)
-		binary.LittleEndian.PutUint16(tmp, uint16(v.Uint()))
-		_, err = b.Write(tmp)
-	case reflect.Uint32:
-		tmp := make([]byte, 4)
-		binary.LittleEndian.PutUint32(tmp, uint32(v.Uint()))
-		_, err = b.Write(tmp)
-	case reflect.Uint64, reflect.Uint:
-		tmp := make([]byte, 8)
-		binary.LittleEndian.PutUint64(tmp, v.Uint())
-		_, err = b.Write(tmp)
-	case reflect.Float32:
-		tmp := make([]byte, 4)
-		f := v.Float()
-		if f == math.NaN() {
-			return errors.New("NaN float value")
-		}
-		binary.LittleEndian.PutUint32(tmp, math.Float32bits(float32(f)))
-		_, err = b.Write(tmp)
-	case reflect.Float64:
-		tmp := make([]byte, 8)
-		f := v.Float()
-		if f == math.NaN() {
-			return errors.New("NaN float value")
-		}
-		binary.LittleEndian.PutUint64(tmp, math.Float64bits(f))
-		_, err = b.Write(tmp)
-	case reflect.String:
-		tmp := make([]byte, 4)
-		binary.LittleEndian.PutUint32(tmp, uint32(len(v.String())))
-		_, err = b.Write(tmp)
-		if err != nil {
-			break
-		}
-		_, err = b.Write([]byte(v.String()))
-	case reflect.Array:
-		for i := 0; i < v.Len(); i++ {
-			err = serialize(v.Index(i), b)
+
+	} else {
+		switch v.Kind() {
+		case reflect.Bool:
+			if v.Bool() {
+				_, err = b.Write([]byte{1})
+			} else {
+				_, err = b.Write([]byte{0})
+			}
+		case reflect.Int8:
+			_, err = b.Write([]byte{byte((v.Int()))})
+		case reflect.Int16:
+			tmp := make([]byte, 2)
+			binary.LittleEndian.PutUint16(tmp, uint16(v.Int()))
+			_, err = b.Write(tmp)
+		case reflect.Int32:
+			tmp := make([]byte, 4)
+			binary.LittleEndian.PutUint32(tmp, uint32(v.Int()))
+			_, err = b.Write(tmp)
+		case reflect.Int64:
+			tmp := make([]byte, 8)
+			binary.LittleEndian.PutUint64(tmp, uint64(v.Int()))
+			_, err = b.Write(tmp)
+		case reflect.Int:
+			tmp := make([]byte, 8)
+			binary.LittleEndian.PutUint64(tmp, uint64(v.Interface().(int)))
+			_, err = b.Write(tmp)
+		case reflect.Uint8:
+			// user-defined Enum type is also uint8, so can't directly assert type here
+			_, err = b.Write([]byte{byte(v.Uint())})
+		case reflect.Uint16:
+			tmp := make([]byte, 2)
+			binary.LittleEndian.PutUint16(tmp, uint16(v.Uint()))
+			_, err = b.Write(tmp)
+		case reflect.Uint32:
+			tmp := make([]byte, 4)
+			binary.LittleEndian.PutUint32(tmp, uint32(v.Uint()))
+			_, err = b.Write(tmp)
+		case reflect.Uint64, reflect.Uint:
+			tmp := make([]byte, 8)
+			binary.LittleEndian.PutUint64(tmp, v.Uint())
+			_, err = b.Write(tmp)
+		case reflect.Float32:
+			tmp := make([]byte, 4)
+			f := v.Float()
+			if f == math.NaN() {
+				return errors.New("NaN float value")
+			}
+			binary.LittleEndian.PutUint32(tmp, math.Float32bits(float32(f)))
+			_, err = b.Write(tmp)
+		case reflect.Float64:
+			tmp := make([]byte, 8)
+			f := v.Float()
+			if f == math.NaN() {
+				return errors.New("NaN float value")
+			}
+			binary.LittleEndian.PutUint64(tmp, math.Float64bits(f))
+			_, err = b.Write(tmp)
+		case reflect.String:
+			tmp := make([]byte, 4)
+			binary.LittleEndian.PutUint32(tmp, uint32(len(v.String())))
+			_, err = b.Write(tmp)
 			if err != nil {
 				break
 			}
-		}
-	case reflect.Slice:
-		tmp := make([]byte, 4)
-		binary.LittleEndian.PutUint32(tmp, uint32(v.Len()))
-		_, err = b.Write(tmp)
-		if err != nil {
-			break
-		}
-		for i := 0; i < v.Len(); i++ {
-			err = serialize(v.Index(i), b)
+			_, err = b.Write([]byte(v.String()))
+		case reflect.Array:
+			for i := 0; i < v.Len(); i++ {
+				err = serialize(v.Index(i), b)
+				if err != nil {
+					break
+				}
+			}
+		case reflect.Slice:
+			tmp := make([]byte, 4)
+			binary.LittleEndian.PutUint32(tmp, uint32(v.Len()))
+			_, err = b.Write(tmp)
 			if err != nil {
 				break
 			}
-		}
-	case reflect.Map:
-		tmp := make([]byte, 4)
-		binary.LittleEndian.PutUint32(tmp, uint32(v.Len()))
-		_, err = b.Write(tmp)
-		if err != nil {
-			break
-		}
-		keys := v.MapKeys()
-		sort.Slice(keys, vComp(keys))
-		for _, k := range keys {
-			err = serialize(k, b)
+			for i := 0; i < v.Len(); i++ {
+				err = serialize(v.Index(i), b)
+				if err != nil {
+					break
+				}
+			}
+		case reflect.Map:
+			tmp := make([]byte, 4)
+			binary.LittleEndian.PutUint32(tmp, uint32(v.Len()))
+			_, err = b.Write(tmp)
 			if err != nil {
 				break
 			}
-			err = serialize(v.MapIndex(k), b)
-		}
-	case reflect.Ptr:
-		if v.IsNil() {
-			_, err = b.Write([]byte{0})
-		} else {
-			_, err = b.Write([]byte{1})
-			if err != nil {
-				break
+			keys := v.MapKeys()
+			sort.Slice(keys, vComp(keys))
+			for _, k := range keys {
+				err = serialize(k, b)
+				if err != nil {
+					break
+				}
+				err = serialize(v.MapIndex(k), b)
 			}
-			err = serialize(v.Elem(), b)
-		}
-	case reflect.Struct:
-		if v.Type() == reflect.TypeOf(*big.NewInt(0)) {
-			err = serializeUint128(v, b)
-		} else {
-			err = serializeStruct(v, b)
+		case reflect.Ptr:
+			if v.IsNil() {
+				_, err = b.Write([]byte{0})
+			} else {
+				_, err = b.Write([]byte{1})
+				if err != nil {
+					break
+				}
+				err = serialize(v.Elem(), b)
+			}
+		case reflect.Struct:
+			if v.Type() == reflect.TypeOf(*big.NewInt(0)) {
+				err = serializeUint128(v, b)
+			} else {
+				err = serializeStruct(v, b)
+			}
 		}
 	}
 	return err
